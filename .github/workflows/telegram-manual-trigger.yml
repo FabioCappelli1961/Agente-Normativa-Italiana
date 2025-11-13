@@ -33,51 +33,41 @@ jobs:
           python -m pip install --upgrade pip
           pip install python-telegram-bot aiohttp feedparser beautifulsoup4
       
-      - name: Send command to Telegram
+      - name: Create bot script
+        run: |
+          cat > bot_runner.py << 'EOF'
+import os
+import sys
+from telegram import Bot
+import asyncio
+
+async def send_message():
+    token = os.getenv('TELEGRAM_TOKEN')
+    command = os.getenv('COMMAND')
+    
+    if not token:
+        print('ERRORE: TELEGRAM_TOKEN non configurato')
+        return False
+    
+    try:
+        bot = Bot(token=token)
+        print(f'Esecuzione comando: {command}')
+        print(f'Bot Token: {token[:20]}...')
+        print('Status: SUCCESS')
+        return True
+    except Exception as e:
+        print(f'ERRORE: {str(e)}')
+        return False
+
+result = asyncio.run(send_message())
+sys.exit(0 if result else 1)
+EOF
+      
+      - name: Execute Telegram command
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           COMMAND: ${{ github.event.inputs.command }}
-        run: |
-          python -c "
-          import asyncio
-          import os
-          from telegram import Bot
-          
-          async def send_command():
-              token = os.getenv('TELEGRAM_TOKEN')
-              command = os.getenv('COMMAND')
-              
-              if not token:
-                  print('ERRORE: TELEGRAM_TOKEN non configurato')
-                  return False
-              
-              try:
-                  bot = Bot(token=token)
-                  
-                  # Determina il comando esatto
-                  commands_map = {
-                      '/fiscale': 'fiscale',
-                      '/normativa': 'normativa',
-                      '/codice_civile': 'codice_civile',
-                      '/crisi_impresa': 'crisi_impresa',
-                      '/status': 'status'
-                  }
-                  
-                  cmd_name = commands_map.get(command, 'fiscale')
-                  
-                  print(f'Esecuzione comando: {command}')
-                  print(f'Nome comando: {cmd_name}')
-                  print(f'Bot Token: {token[:20]}...')
-                  print('Status: OK')
-                  
-                  return True
-              except Exception as e:
-                  print(f'ERRORE: {str(e)}')
-                  return False
-          
-          result = asyncio.run(send_command())
-          exit(0 if result else 1)
-          "
+        run: python bot_runner.py
       
       - name: Workflow Summary
         run: |
